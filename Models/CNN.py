@@ -1,81 +1,113 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import tensorflow as tf
+from tensorflow.keras import Sequential
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense
 from tensorflow.keras.datasets import mnist
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
-from tensorflow.keras.utils import to_categorical
+from sklearn.metrics import confusion_matrix, classification_report
+import seaborn as sns
 import time
 
-# Load the MNIST dataset
-(x_train, y_train), (x_test, y_test) = mnist.load_data()
+# Load MNIST dataset
+(train_images, train_labels), (test_images, test_labels) = mnist.load_data()
 
-# Preprocess the data
-x_train = x_train.reshape(-1, 28, 28, 1).astype('float32') / 255.0
-x_test = x_test.reshape(-1, 28, 28, 1).astype('float32') / 255.0
+# Reshape and normalize data for CNN
+train_images = train_images.reshape(train_images.shape[0], 28, 28, 1) / 255.0
+test_images = test_images.reshape(test_images.shape[0], 28, 28, 1) / 255.0
 
-y_train = to_categorical(y_train, 10)
-y_test = to_categorical(y_test, 10)
+# One-hot encode labels for CNN
+train_labels_onehot = tf.keras.utils.to_categorical(train_labels, 10)
+test_labels_onehot = tf.keras.utils.to_categorical(test_labels, 10)
 
-# Build the CNN model
-model = Sequential([
+# Define CNN model
+model_cnn = Sequential([
     Conv2D(32, kernel_size=(3, 3), activation='relu', input_shape=(28, 28, 1)),
     MaxPooling2D(pool_size=(2, 2)),
     Conv2D(64, kernel_size=(3, 3), activation='relu'),
     MaxPooling2D(pool_size=(2, 2)),
     Flatten(),
     Dense(128, activation='relu'),
-    Dropout(0.5),
     Dense(10, activation='softmax')
 ])
 
 # Compile the model
-model.compile(optimizer='adam',
-              loss='categorical_crossentropy',
-              metrics=['accuracy'])
+model_cnn.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
 
-# Train the model and measure runtime
+# Measure training time
+print("Training CNN...")
 start_time = time.time()
-history = model.fit(x_train, y_train,
-                    batch_size=128,
-                    epochs=10,
-                    validation_split=0.2)
+history = model_cnn.fit(train_images, train_labels_onehot, epochs=5, batch_size=128, verbose=1)
 training_time = time.time() - start_time
-print(f"Training completed in {training_time:.2f} seconds")
+print(f"Training completed in {training_time:.2f} seconds.")
 
-# Evaluate the model on the test set
+# Measure inference time
+print("Running predictions...")
 start_time = time.time()
-test_loss, test_accuracy = model.evaluate(x_test, y_test)
-testing_time = time.time() - start_time
-print(f"Test Accuracy: {test_accuracy * 100:.2f}%")
-print(f"Testing completed in {testing_time:.2f} seconds")
+cnn_predictions = np.argmax(model_cnn.predict(test_images), axis=1)
+inference_time = time.time() - start_time
+print(f"Inference completed in {inference_time:.2f} seconds.")
 
-# Get the model's predictions for the test set
-y_pred = model.predict(x_test)
-y_pred_classes = np.argmax(y_pred, axis=1)  # Predicted class labels
-y_true_classes = np.argmax(y_test, axis=1)  # True class labels
+# Evaluate accuracy
+cnn_accuracy = np.mean(cnn_predictions == test_labels)
+print(f"CNN Accuracy: {cnn_accuracy * 100:.2f}%")
 
-# Calculate successful classification percentage for each digit
-successful_classification = {}
-for digit in range(10):
-    total = np.sum(y_true_classes == digit)
-    correct = np.sum((y_true_classes == digit) & (y_pred_classes == digit))
-    percentage = (correct / total) * 100 if total > 0 else 0
-    successful_classification[digit] = percentage
-
-print("Successful classification percentage for each digit:")
-for digit, percentage in successful_classification.items():
-    print(f"Digit {digit}: {percentage:.2f}%")
-
-# Save the model
-model.save('mnist_cnn_model.keras')
-
-# Plot training and validation accuracy
-plt.figure(figsize=(10, 6))
-plt.plot(history.history['accuracy'], label='Training Accuracy')
-plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
-plt.title('Training and Validation Accuracy')
-plt.xlabel('Epochs')
-plt.ylabel('Accuracy')
-plt.legend()
+# Confusion Matrix (to identify frequently misclassified digits)
+cm = confusion_matrix(test_labels, cnn_predictions)
+plt.figure(figsize=(10, 8))
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', cbar=False)
+plt.xlabel('Predicted')
+plt.ylabel('True')
+plt.title('Confusion Matrix for CNN')
 plt.show()
 
+# Classification Report (precision, recall, F1-score)
+print("Classification Report:")
+print(classification_report(test_labels, cnn_predictions))
+
+# Visualize misclassified digits for each class
+misclassified = np.where(test_labels != cnn_predictions)[0]
+misclassified_by_class = {i: [] for i in range(10)}
+
+# Group misclassified samples by true label
+for idx in misclassified:
+    true_label = test_labels[idx]
+    misclassified_by_class[true_label].append(idx)
+
+# Plot one misclassified example per class
+plt.figure(figsize=(15, 8))
+for i in range(10):
+    if misclassified_by_class[i]:  # Check if there are misclassified samples for this class
+        idx = misclassified_by_class[i][0]  # Take the first misclassified sample for this class
+        plt.subplot(2, 5, i+1)
+        plt.imshow(test_images[idx].reshape(28, 28), cmap='gray')
+        plt.title(f"True: {test_labels[idx]}\nPred: {cnn_predictions[idx]}")
+    else:
+        plt.subplot(2, 5, i+1)
+        plt.text(0.5, 0.5, f"No misclassified\nfor {i}", ha='center', va='center')
+        plt.axis('off')
+plt.suptitle('Misclassified Digits by CNN (One Example per Class)')
+plt.show()
+
+# Calculate misclassified counts by digit
+misclassified_counts = {i: 0 for i in range(10)}
+for idx in misclassified:
+    true_label = test_labels[idx]
+    misclassified_counts[true_label] += 1
+
+# Calculate successful classification percentage by digit
+success_percentage = {i: 0 for i in range(10)}
+for i in range(10):
+    total_samples = np.sum(test_labels == i)
+    correct_samples = total_samples - misclassified_counts[i]
+    success_percentage[i] = (correct_samples / total_samples) * 100
+
+# Print results
+print(f"CNN Model Training Time: {training_time:.2f} seconds")
+print(f"CNN Model Testing Time: {inference_time:.2f} seconds")
+print(f"CNN Model Test Accuracy: {cnn_accuracy * 100:.2f}%")
+print("\nMisclassified counts by digit for CNN:")
+for i in range(10):
+    print(f"Digit {i}: {misclassified_counts[i]}")
+print("\nSuccessful classification percentage for CNN by digit:")
+for i in range(10):
+    print(f"Digit {i}: {success_percentage[i]:.2f}%")
