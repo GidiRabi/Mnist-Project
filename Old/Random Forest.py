@@ -1,37 +1,20 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from tensorflow.keras.datasets import mnist # type: ignore
+from tensorflow.keras.datasets import mnist
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
-from scipy.stats import skew, kurtosis
 import seaborn as sns
 import time
 
 # Load MNIST dataset
 (train_images, train_labels), (test_images, test_labels) = mnist.load_data()
 
-# Extract statistical features from images
-def extract_stat_features(image):
-    row_mean = np.mean(image, axis=1)
-    col_mean = np.mean(image, axis=0)
-    row_var = np.var(image, axis=1)
-    col_var = np.var(image, axis=0)
-    row_skew = skew(image, axis=1)
-    col_skew = skew(image, axis=0)
-    row_kurt = kurtosis(image, axis=1)
-    col_kurt = kurtosis(image, axis=0)
-    return np.concatenate([row_mean, col_mean, row_var, col_var, row_skew, col_skew, row_kurt, col_kurt])
-
-train_features = np.array([extract_stat_features(img) for img in train_images])
-test_features = np.array([extract_stat_features(img) for img in test_images])
-
-# Compute the average number of activated pixels per digit (nonzero pixels)
-average_active_pixels = {
-    digit: np.mean([np.count_nonzero(img) for img in train_images[train_labels == digit]])
-    for digit in range(10)
-}
+# Flatten images for Random Forest (28x28 -> 784)
+train_images_flat = train_images.reshape(train_images.shape[0], -1) / 255.0
+test_images_flat = test_images.reshape(test_images.shape[0], -1) / 255.0
 
 # Initialize Random Forest
+# Parameters are tuned for balance between accuracy and computation time
 model_rf = RandomForestClassifier(
     n_estimators=100,  # Number of trees
     max_depth=20,      # Limit the depth of each tree
@@ -42,25 +25,20 @@ model_rf = RandomForestClassifier(
 # Measure training time
 print("Training Random Forest...")
 start_time = time.time()
-model_rf.fit(train_features, train_labels)
+model_rf.fit(train_images_flat, train_labels)
 training_time = time.time() - start_time
 print(f"Training completed in {training_time:.2f} seconds.")
 
 # Measure inference time
 print("Running predictions...")
 start_time = time.time()
-rf_predictions = model_rf.predict(test_features)
+rf_predictions = model_rf.predict(test_images_flat)
 inference_time = time.time() - start_time
 print(f"Inference completed in {inference_time:.2f} seconds.")
 
 # Evaluate accuracy
 rf_accuracy = accuracy_score(test_labels, rf_predictions)
 print(f"Random Forest Accuracy: {rf_accuracy * 100:.2f}%")
-
-# Print the average number of activated pixels for each digit
-print("\nAverage Number of Activated Pixels for Each Digit:")
-for digit, avg_pixels in average_active_pixels.items():
-    print(f"Digit {digit}: {avg_pixels:.2f} pixels")
 
 # Confusion Matrix (to identify frequently misclassified digits)
 cm = confusion_matrix(test_labels, rf_predictions)
@@ -87,8 +65,8 @@ for idx in misclassified:
 # Plot one misclassified example per class
 plt.figure(figsize=(15, 8))
 for i in range(10):
-    if misclassified_by_class[i]:
-        idx = misclassified_by_class[i][0]
+    if misclassified_by_class[i]:  # Check if there are misclassified samples for this class
+        idx = misclassified_by_class[i][0]  # Take the first misclassified sample for this class
         plt.subplot(2, 5, i+1)
         plt.imshow(test_images[idx].reshape(28, 28), cmap='gray')
         plt.title(f"True: {test_labels[idx]}\nPred: {rf_predictions[idx]}")

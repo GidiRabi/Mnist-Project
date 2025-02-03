@@ -1,9 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import tensorflow as tf
-from tensorflow.keras import Sequential # type: ignore
-from tensorflow.keras.layers import Conv2D, MaxPooling2D, GlobalAveragePooling2D, Dense # type: ignore
-from tensorflow.keras.datasets import mnist # type: ignore
+from tensorflow.keras import Sequential
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense
+from tensorflow.keras.datasets import mnist
 from sklearn.metrics import confusion_matrix, classification_report
 import seaborn as sns
 import time
@@ -19,19 +19,13 @@ test_images = test_images.reshape(test_images.shape[0], 28, 28, 1) / 255.0
 train_labels_onehot = tf.keras.utils.to_categorical(train_labels, 10)
 test_labels_onehot = tf.keras.utils.to_categorical(test_labels, 10)
 
-# Compute the average number of activated pixels per digit (nonzero pixels)
-average_active_pixels = {
-    digit: np.mean([np.count_nonzero(img) for img in train_images[train_labels == digit]])
-    for digit in range(10)
-}
-
-# Define CNN model with GAP instead of Flatten
+# Define CNN model
 model_cnn = Sequential([
     Conv2D(32, kernel_size=(3, 3), activation='relu', input_shape=(28, 28, 1)),
     MaxPooling2D(pool_size=(2, 2)),
     Conv2D(64, kernel_size=(3, 3), activation='relu'),
     MaxPooling2D(pool_size=(2, 2)),
-    GlobalAveragePooling2D(),
+    Flatten(),
     Dense(128, activation='relu'),
     Dense(10, activation='softmax')
 ])
@@ -56,11 +50,6 @@ print(f"Inference completed in {inference_time:.2f} seconds.")
 # Evaluate accuracy
 cnn_accuracy = np.mean(cnn_predictions == test_labels)
 print(f"CNN Accuracy: {cnn_accuracy * 100:.2f}%")
-
-# Print the average number of activated pixels for each digit
-print("\nAverage Number of Activated Pixels for Each Digit:")
-for digit, avg_pixels in average_active_pixels.items():
-    print(f"Digit {digit}: {avg_pixels:.2f} pixels")
 
 # Confusion Matrix (to identify frequently misclassified digits)
 cm = confusion_matrix(test_labels, cnn_predictions)
@@ -113,7 +102,7 @@ for i in range(10):
     success_percentage[i] = (correct_samples / total_samples) * 100
 
 # Print results
-print(f"\nCNN Model Training Time: {training_time:.2f} seconds")
+print(f"CNN Model Training Time: {training_time:.2f} seconds")
 print(f"CNN Model Testing Time: {inference_time:.2f} seconds")
 print(f"CNN Model Test Accuracy: {cnn_accuracy * 100:.2f}%")
 print("\nMisclassified counts by digit for CNN:")

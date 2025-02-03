@@ -1,28 +1,18 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from tensorflow.keras.datasets import mnist # type: ignore
+from tensorflow.keras.datasets import mnist
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
-from sklearn.preprocessing import StandardScaler
+from tqdm import tqdm
 import seaborn as sns
 import time
 
 # Load MNIST dataset
 (train_images, train_labels), (test_images, test_labels) = mnist.load_data()
 
-# Flatten and normalize pixel values
-train_images_flat = train_images.reshape(train_images.shape[0], -1)
-test_images_flat = test_images.reshape(test_images.shape[0], -1)
-
-scaler = StandardScaler()
-train_images_flat = scaler.fit_transform(train_images_flat)
-test_images_flat = scaler.transform(test_images_flat)
-
-# Compute the average number of activated pixels per digit (nonzero pixels)
-average_active_pixels = {
-    digit: np.mean([np.count_nonzero(img) for img in train_images[train_labels == digit]])
-    for digit in range(10)
-}
+# Flatten images for Logistic Regression (28x28 -> 784)
+train_images_flat = train_images.reshape(train_images.shape[0], -1) / 255.0
+test_images_flat = test_images.reshape(test_images.shape[0], -1) / 255.0
 
 # Initialize Logistic Regression with tuned settings
 model_lr = LogisticRegression(
@@ -32,7 +22,7 @@ model_lr = LogisticRegression(
     verbose=1              # Enable verbose output to track training progress
 )
 
-# Measure training time
+# Measure training time with progress tracking
 print("Training Logistic Regression...")
 start_time = time.time()
 model_lr.fit(train_images_flat, train_labels)
@@ -49,11 +39,6 @@ print(f"Inference completed in {inference_time:.2f} seconds.")
 # Evaluate accuracy
 lr_accuracy = accuracy_score(test_labels, lr_predictions)
 print(f"Logistic Regression Accuracy: {lr_accuracy * 100:.2f}%")
-
-# Print the average number of activated pixels for each digit
-print("\nAverage Number of Activated Pixels for Each Digit:")
-for digit, avg_pixels in average_active_pixels.items():
-    print(f"Digit {digit}: {avg_pixels:.2f} pixels")
 
 # Confusion Matrix (to identify frequently misclassified digits)
 cm = confusion_matrix(test_labels, lr_predictions)
@@ -80,8 +65,8 @@ for idx in misclassified:
 # Plot one misclassified example per class
 plt.figure(figsize=(15, 8))
 for i in range(10):
-    if misclassified_by_class[i]:  
-        idx = misclassified_by_class[i][0]  
+    if misclassified_by_class[i]:  # Check if there are misclassified samples for this class
+        idx = misclassified_by_class[i][0]  # Take the first misclassified sample for this class
         plt.subplot(2, 5, i+1)
         plt.imshow(test_images[idx].reshape(28, 28), cmap='gray')
         plt.title(f"True: {test_labels[idx]}\nPred: {lr_predictions[idx]}")

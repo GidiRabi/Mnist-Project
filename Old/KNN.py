@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from tensorflow.keras.datasets import mnist # type: ignore
+from tensorflow.keras.datasets import mnist
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
 import seaborn as sns
@@ -9,22 +9,9 @@ import time
 # Load MNIST dataset
 (train_images, train_labels), (test_images, test_labels) = mnist.load_data()
 
-# Extract column-wise and row-wise features
-def extract_features(image):
-    row_means = np.mean(image, axis=1)
-    col_means = np.mean(image, axis=0)
-    row_vars = np.var(image, axis=1)
-    col_vars = np.var(image, axis=0)
-    return np.concatenate([row_means, col_means, row_vars, col_vars])
-
-train_features = np.array([extract_features(img) for img in train_images])
-test_features = np.array([extract_features(img) for img in test_images])
-
-# Compute the average number of activated pixels per digit (nonzero pixels)
-average_active_pixels = {
-    digit: np.mean([np.count_nonzero(img) for img in train_images[train_labels == digit]])
-    for digit in range(10)
-}
+# Flatten images for KNN (28x28 -> 784)
+train_images_flat = train_images.reshape(train_images.shape[0], -1) / 255.0
+test_images_flat = test_images.reshape(test_images.shape[0], -1) / 255.0
 
 # Define k values for small, medium, and high complexity
 k_values = {"small": 1, "medium": 5, "high": 15}
@@ -38,25 +25,20 @@ for complexity, k in k_values.items():
     # Measure training time
     print(f"Training KNN with k={k}...")
     start_time = time.time()
-    model_knn.fit(train_features, train_labels)
+    model_knn.fit(train_images_flat, train_labels)
     training_time = time.time() - start_time
     print(f"Training completed in {training_time:.2f} seconds.")
 
     # Measure inference time
     print(f"Running predictions with k={k}...")
     start_time = time.time()
-    knn_predictions = model_knn.predict(test_features)
+    knn_predictions = model_knn.predict(test_images_flat)
     inference_time = time.time() - start_time
     print(f"Inference completed in {inference_time:.2f} seconds.")
 
     # Evaluate accuracy
     knn_accuracy = accuracy_score(test_labels, knn_predictions)
     print(f"KNN Accuracy (k={k}): {knn_accuracy * 100:.2f}%")
-
-    # Print the average number of activated pixels for each digit
-    print("\nAverage Number of Activated Pixels for Each Digit:")
-    for digit, avg_pixels in average_active_pixels.items():
-        print(f"Digit {digit}: {avg_pixels:.2f} pixels")
 
     # Confusion Matrix
     cm = confusion_matrix(test_labels, knn_predictions)

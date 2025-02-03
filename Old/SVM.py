@@ -1,8 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from tensorflow.keras.datasets import mnist # type: ignore
+from tensorflow.keras.datasets import mnist
 from sklearn.svm import SVC
-from sklearn.decomposition import PCA
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 import seaborn as sns
 import time
@@ -14,46 +13,30 @@ import time
 train_images = train_images / 255.0
 test_images = test_images / 255.0
 
-# Flatten images
+# Flatten images for SVM (28x28 -> 784)
 train_images_flat = train_images.reshape(train_images.shape[0], -1)
 test_images_flat = test_images.reshape(test_images.shape[0], -1)
 
-# Apply PCA to reduce dimensionality
-pca = PCA(n_components=50)  # Retain 95%+ variance
-train_images_pca = pca.fit_transform(train_images_flat)
-test_images_pca = pca.transform(test_images_flat)
-
-# Compute the average number of activated pixels per digit (nonzero pixels)
-average_active_pixels = {
-    digit: np.mean([np.count_nonzero(img) for img in train_images[train_labels == digit]])
-    for digit in range(10)
-}
-
-# Initialize SVM with RBF kernel
+# Initialize SVM with RBF kernel and verbose output
 model_svm = SVC(kernel='rbf', gamma='scale', verbose=True)  # Set verbose=True for progress updates
 
 # Measure training time
 print("Training SVM...")
 start_time = time.time()
-model_svm.fit(train_images_pca, train_labels)
+model_svm.fit(train_images_flat, train_labels)
 training_time = time.time() - start_time
 print(f"Training completed in {training_time:.2f} seconds.")
 
 # Measure inference time
 print("Running predictions...")
 start_time = time.time()
-svm_predictions = model_svm.predict(test_images_pca)
+svm_predictions = model_svm.predict(test_images_flat)
 inference_time = time.time() - start_time
 print(f"Inference completed in {inference_time:.2f} seconds.")
 
 # Evaluate accuracy
 svm_accuracy = accuracy_score(test_labels, svm_predictions)
 print(f"SVM Accuracy: {svm_accuracy:.4f}")
-
-# Print the average number of activated pixels for each digit
-print("\nAverage Number of Activated Pixels for Each Digit:")
-for digit, avg_pixels in average_active_pixels.items():
-    print(f"Digit {digit}: {avg_pixels:.2f} pixels")
 
 # Confusion Matrix (to identify frequently misclassified digits)
 cm = confusion_matrix(test_labels, svm_predictions)
