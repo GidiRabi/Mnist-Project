@@ -25,7 +25,7 @@ average_active_pixels = {
     for digit in range(10)
 }
 
-# Define CNN model with GAP instead of Flatten
+# Define CNN model with GAP (instead of Flatten)
 model_cnn = Sequential([
     Conv2D(32, kernel_size=(3, 3), activation='relu', input_shape=(28, 28, 1)),
     MaxPooling2D(pool_size=(2, 2)),
