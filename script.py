@@ -2,10 +2,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # Data from your results
-models = ["Logistic Regression","", "KNN (k= 5 / 1)", "KNN (k=15)", 
+models = ["Logistic Regression", "KNN (k=1)", "KNN (k=5)", "KNN (k=15)", 
           "Random Forest", "SVM", "CNN"]
-training_times = [44.45, 0.04, 0.03, 0.04, 13.97, 198.48, 99.81]  # in seconds
-accuracies = [92.60, 96.91, 96.88, 96.33, 96.80, 97.92, 99.02]  # in %
+training_times = [31.14, 0.02, 0.01, 0.01, 22.21, 155.85, 93.82]  # in seconds
+accuracies = [92.21, 86.01, 86.78, 86.07, 91.19, 92.1, 93.16]  # in %
+
 
 # Apply small jitter to avoid overlapping (add tiny noise to training times)
 training_times_jittered = np.array(training_times)

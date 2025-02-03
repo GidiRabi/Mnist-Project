@@ -18,10 +18,11 @@ test_images = test_images / 255.0
 train_images_flat = train_images.reshape(train_images.shape[0], -1)
 test_images_flat = test_images.reshape(test_images.shape[0], -1)
 
-# Apply PCA to reduce dimensionality
-pca = PCA(n_components=50)  # Retain 95%+ variance
-train_images_pca = pca.fit_transform(train_images_flat)
-test_images_pca = pca.transform(test_images_flat)
+# Apply PCA to reduce dimensionality (Ensure PCA is fitted ONLY on training data)
+pca = PCA(n_components=50, svd_solver='randomized', whiten=True)  # Retain 95%+ variance
+pca.fit(train_images_flat)  # Fit only on train data
+train_images_pca = pca.transform(train_images_flat)
+test_images_pca = pca.transform(test_images_flat)  # Apply same transformation to test data
 
 # Compute the average number of activated pixels per digit (nonzero pixels)
 average_active_pixels = {
@@ -29,8 +30,8 @@ average_active_pixels = {
     for digit in range(10)
 }
 
-# Initialize SVM with RBF kernel
-model_svm = SVC(kernel='rbf', gamma='scale', verbose=True)  # Set verbose=True for progress updates
+# Initialize SVM with RBF kernel and prevent overfitting
+model_svm = SVC(kernel='rbf', gamma=0.005, C=0.5, verbose=True)  # Reduced gamma and C
 
 # Measure training time
 print("Training SVM...")
@@ -38,6 +39,9 @@ start_time = time.time()
 model_svm.fit(train_images_pca, train_labels)
 training_time = time.time() - start_time
 print(f"Training completed in {training_time:.2f} seconds.")
+
+# Check number of support vectors to diagnose overfitting
+print(f"Number of Support Vectors per class: {model_svm.n_support_}")
 
 # Measure inference time
 print("Running predictions...")
@@ -49,6 +53,10 @@ print(f"Inference completed in {inference_time:.2f} seconds.")
 # Evaluate accuracy
 svm_accuracy = accuracy_score(test_labels, svm_predictions)
 print(f"SVM Accuracy: {svm_accuracy:.4f}")
+
+# Debugging: Ensure the predictions are reasonable
+print("First 10 Test Labels: ", test_labels[:10])
+print("First 10 Predictions: ", svm_predictions[:10])
 
 # Print the average number of activated pixels for each digit
 print("\nAverage Number of Activated Pixels for Each Digit:")
